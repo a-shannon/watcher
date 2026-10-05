@@ -156,7 +156,7 @@ export class Queue {
         );
       } else {
         if (!(await this.validateTxInputsAndOutputs(signedTx))) {
-          this.resetTxStatus(tx, currentHeight);
+          await this.resetTxStatus(tx, currentHeight);
         } else {
           logger.warn(
             `Error occurred while sending ${tx.type} tx [${tx.txId}]`
@@ -167,7 +167,7 @@ export class Queue {
       logger.info(
         `Tx [${tx.txId}] of type ${tx.type} observation or commitments are not valid, skipping the transaction sending]`
       );
-      this.resetTxStatus(tx, currentHeight);
+      await this.resetTxStatus(tx, currentHeight);
     }
   };
 
