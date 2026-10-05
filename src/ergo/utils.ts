@@ -202,7 +202,8 @@ export class ErgoUtils {
     builder: wasm.TxBuilder,
     secret: wasm.SecretKey,
     inputs: wasm.ErgoBoxes,
-    dataInputs: wasm.ErgoBoxes = wasm.ErgoBoxes.from_boxes_json([])
+    dataInputs: wasm.ErgoBoxes = wasm.ErgoBoxes.from_boxes_json([]),
+    withSigning?: (sign: () => wasm.Transaction) => Promise<wasm.Transaction>
   ) => {
     const tx = builder.build();
     logger.debug(
@@ -215,7 +216,9 @@ export class ErgoUtils {
     secrets.add(secret);
     const wallet = wasm.Wallet.from_secrets(secrets);
     const ctx = await ErgoNetwork.getErgoStateContext();
-    return wallet.sign_transaction(ctx, tx, inputs, dataInputs);
+    /** Signs the built transaction with its resolved context, inputs and data inputs. */
+    const sign = () => wallet.sign_transaction(ctx, tx, inputs, dataInputs);
+    return withSigning ? withSigning(sign) : sign();
   };
 
   /**
@@ -256,7 +259,8 @@ export class ErgoUtils {
     candidates: Array<wasm.ErgoBoxCandidate>,
     height: number,
     dataInputs?: wasm.ErgoBoxes,
-    changeContract?: wasm.Contract
+    changeContract?: wasm.Contract,
+    withSigning?: (sign: () => wasm.Transaction) => Promise<wasm.Transaction>
   ): Promise<wasm.Transaction> => {
     const change = ErgoUtils.createChangeBox(
       boxes,
@@ -300,7 +304,8 @@ export class ErgoUtils {
       txBuilder,
       secret,
       boxes,
-      dataInputs ? dataInputs : wasm.ErgoBoxes.from_boxes_json([])
+      dataInputs ? dataInputs : wasm.ErgoBoxes.from_boxes_json([]),
+      withSigning
     );
   };
 
