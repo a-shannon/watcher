@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src",
+    "config/dataSource.ts",
+    "vitest.shared.config.ts",
+    "tests/sharedSetup.ts",
+    "tests/ergo/utils.spec.ts",
+    "tests/ergo/transaction/queue.spec.ts"
+  ]
+}

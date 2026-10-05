@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:20.11-bookworm-slim
+FROM node:22.18-bookworm-slim
 ARG SERVICE_DIR=/app/services/watcher
 
 LABEL maintainer="rosen-bridge team <team@rosen.tech>"
@@ -19,7 +19,7 @@ ENV NODE_ENV=production
 RUN --mount=type=cache,target=/root/.npm \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/tmp/node-compile-cache \
-    npm ci && chown -R ergo:ergo /app/
+    npm i -g npm@11.6.2 && npm ci && chown -R ergo:ergo /app/
 
 USER ergo
 ENV SERVICE_PORT=3000

@@ -2,5 +2,10 @@
   "extensions": ["ts"],
   "spec": ["tests/**/*.ts"],
   "node-option": ["import=tsx"],
-  "require": ["src/bootstrap.ts", "tests/bootstrap.ts"]
+  "require": ["src/bootstrap.ts", "tests/bootstrap.ts"],
+  "ignore": [
+    "tests/ergo/utils.spec.ts",
+    "tests/ergo/transaction/queue.spec.ts",
+    "tests/sharedSetup.ts"
+  ]
 }
