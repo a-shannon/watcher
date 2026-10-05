@@ -24,6 +24,7 @@ import {
 import { Transaction } from '../api/Transaction';
 import { getConfig } from '../config/config';
 import {
+  AVALANCHE_CHAIN_NAME,
   BINANCE_BLOCK_TIME,
   BINANCE_CHAIN_NAME,
   BITCOIN_BLOCK_TIME,
@@ -58,6 +59,7 @@ class HealthCheckSingleton {
   private permitHealthCheckParam: AbstractPermitHealthCheckParam;
   private ergoScannerSyncCheckParam: ScannerSyncHealthCheckParam;
 
+  /** Returns the watcher-wide health registry, creating it on first access. */
   static getInstance = () => {
     if (!HealthCheckSingleton.instance) {
       HealthCheckSingleton.instance = new HealthCheckSingleton();
@@ -65,6 +67,7 @@ class HealthCheckSingleton {
     return HealthCheckSingleton.instance;
   };
 
+  /** Registers logging, Ergo and observation health checks with the configured notifications. */
   private constructor() {
     let notify;
     let notificationConfig;
@@ -118,6 +121,7 @@ class HealthCheckSingleton {
     }
   }
 
+  /** Reads the database's latest completed block for the requested scanner. */
   private observingNetworkLastBlock = (scanner: string) => {
     return () => watcherDatabase.getLastBlockInfo(scanner);
   };
@@ -256,6 +260,13 @@ class HealthCheckSingleton {
           chainName = BINANCE_CHAIN_NAME;
           chainBlockTime = BINANCE_BLOCK_TIME;
           updateInterval = currentConfig.binance.interval;
+          break;
+        case AVALANCHE_CHAIN_NAME:
+          if (!currentConfig.avalanche)
+            throw new Error('Avalanche configuration is missing');
+          chainName = AVALANCHE_CHAIN_NAME;
+          chainBlockTime = currentConfig.avalanche.blockTime;
+          updateInterval = currentConfig.avalanche.interval;
           break;
         case HANDSHAKE_CHAIN_NAME:
           chainName = HANDSHAKE_CHAIN_NAME;

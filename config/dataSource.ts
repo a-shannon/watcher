@@ -19,6 +19,10 @@ import {
   CollateralEntity,
 } from '@rosen-bridge/watcher-data-extractor';
 import { DataSource } from '@rosen-bridge/extended-typeorm';
+import {
+  AvalancheSafetyState,
+  AvalancheSafetyState1790769600000,
+} from '@rosen-bridge/evm-scanner';
 import { getConfig } from '../src/config/config';
 
 import { ObservationStatusEntity } from '../src/database/entities/observationStatusEntity';
@@ -32,6 +36,7 @@ import migrations from '../src/database/migrations';
 const dbType = getConfig().database.type as keyof typeof migrations;
 const dbConfigs = {
   entities: [
+    AvalancheSafetyState,
     BlockEntity,
     BoxEntity,
     CommitmentEntity,
@@ -48,6 +53,7 @@ const dbConfigs = {
     RevenueChartDataView,
   ],
   migrations: [
+    AvalancheSafetyState1790769600000,
     ...addressExtractorMigrations[dbType],
     ...observationMigrations[dbType],
     ...scannerMigrations[dbType],

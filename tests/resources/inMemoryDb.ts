@@ -1,5 +1,9 @@
 import { DataSource } from '@rosen-bridge/extended-typeorm';
 import {
+  AvalancheSafetyState,
+  AvalancheSafetyState1790769600000,
+} from '@rosen-bridge/evm-scanner';
+import {
   BoxEntity,
   migrations as addressExtractorMigrations,
 } from '@rosen-bridge/address-extractor';
@@ -27,6 +31,7 @@ import { RevenueChartDataView } from '../../src/database/entities/revenueChartDa
 
 const createMemoryDatabase = async (): Promise<DataSource> => {
   const entities = [
+    AvalancheSafetyState,
     BlockEntity,
     BoxEntity,
     ObservationEntity,
@@ -46,6 +51,7 @@ const createMemoryDatabase = async (): Promise<DataSource> => {
     database: ':memory:',
     entities: entities,
     migrations: [
+      AvalancheSafetyState1790769600000,
       ...addressExtractorMigrations.sqlite,
       ...observationMigrations.sqlite,
       ...scannerMigrations.sqlite,

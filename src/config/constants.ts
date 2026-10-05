@@ -19,6 +19,7 @@ export const BITCOIN_RUNES_CHAIN_NAME = 'bitcoin-runes';
 export const DOGE_CHAIN_NAME = 'doge';
 export const ETHEREUM_CHAIN_NAME = 'ethereum';
 export const BINANCE_CHAIN_NAME = 'binance';
+export const AVALANCHE_CHAIN_NAME = 'avalanche';
 export const HANDSHAKE_CHAIN_NAME = 'handshake';
 export const FIRO_CHAIN_NAME = 'firo';
 export const ERGO_NATIVE_ASSET = 'erg';

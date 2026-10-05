@@ -15,23 +15,39 @@ const {
   doge: dogeConfig,
   ethereum: ethereumConfig,
   binance: binanceConfig,
+  avalanche: avalancheConfig,
   handshake: handshakeConfig,
   firo: firoConfig,
 } = allConfig;
 
 const logger = DefaultLogger.getInstance().child(import.meta.url);
 
-const scanningJob = async (interval: number, scanner: GeneralScanner<any>) => {
+/** Updates one scanner and schedules its next attempt, with fixed Avalanche failure text. */
+const scanningJob = async (
+  interval: number,
+  scanner: GeneralScanner<any>,
+  sanitizeFailure = false
+) => {
   try {
     await scanner.update();
   } catch (e) {
-    logger.warn(
-      `Scanning Job failed for ${scanner.name()}, ${e.message}, ${e.stack}`
-    );
+    if (sanitizeFailure) {
+      logger.warn(
+        'Avalanche scanner update failed; inspect persisted safety state.'
+      );
+    } else {
+      logger.warn(
+        `Scanning Job failed for ${scanner.name()}, ${e.message}, ${e.stack}`
+      );
+    }
   }
-  setTimeout(() => scanningJob(interval, scanner), interval * 1000);
+  setTimeout(
+    () => scanningJob(interval, scanner, sanitizeFailure),
+    interval * 1000
+  );
 };
 
+/** Starts Ergo scanning and the configured observation scanner's update loop. */
 export const scannerInit = () => {
   const scanner = CreateScanner.getInstance();
   scanningJob(config.ergoInterval, scanner.getErgoScanner()).then(() => null);
@@ -80,6 +96,15 @@ export const scannerInit = () => {
       scanningJob(
         binanceConfig.interval,
         scanner.getObservationScanner() as EvmRpcScanner
+      ).then(() => null);
+      break;
+    case Constants.AVALANCHE_CHAIN_NAME:
+      if (!avalancheConfig)
+        throw new Error('Avalanche configuration is missing');
+      scanningJob(
+        avalancheConfig.interval,
+        scanner.getObservationScanner() as EvmRpcScanner,
+        true
       ).then(() => null);
       break;
     case Constants.FIRO_CHAIN_NAME:

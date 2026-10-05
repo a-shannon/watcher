@@ -83,6 +83,7 @@ import {
   createHandshakeRpcNetworkConnectorManager,
 } from './networkConnectorManagers';
 import { BlockCleanupConfig } from '@rosen-bridge/abstract-scanner/dist/scanner/interfaces';
+import { createAvalancheScanner } from './avalancheScanner';
 
 const logger = DefaultLogger.getInstance().child(import.meta.url);
 
@@ -120,6 +121,7 @@ class CreateScanner {
     | FiroElectrumXScanner
     | HandshakeRpcScanner;
 
+  /** Creates the singleton whose scanners are attached during initialization. */
   private constructor() {
     // do nothing
   }
@@ -140,6 +142,7 @@ class CreateScanner {
         doge: dogeConfig,
         ethereum: ethereumConfig,
         binance: binanceConfig,
+        avalanche: avalancheConfig,
         handshake: handshakeConfig,
         firo: firoConfig,
       } = allConfig;
@@ -195,6 +198,20 @@ class CreateScanner {
             nonErgoChainsBlockCleanupConfig
           );
           break;
+        case Constants.AVALANCHE_CHAIN_NAME:
+          if (!avalancheConfig)
+            throw new Error('Avalanche configuration is missing');
+          CreateScanner.instance.observationScanner =
+            await createAvalancheScanner(avalancheConfig, {
+              dataSource,
+              rosen: rosenConfig,
+              tokens: TokensConfig.getInstance().getTokenMap(),
+              storeRawData: config.observationStoreRawData,
+              blockCleanupConfig: nonErgoChainsBlockCleanupConfig,
+              logger: loggers.observationScannerLogger,
+              extractorLogger: loggers.observationExtractorLogger,
+            });
+          break;
         case Constants.DOGE_CHAIN_NAME:
           await CreateScanner.instance.createDogeScanner(
             dogeConfig,
@@ -239,6 +256,7 @@ class CreateScanner {
   };
 
   /**
+   * Returns the configured Ergo scanner after singleton initialization.
    * @returns the ergo scanner
    */
   getErgoScanner = (): ErgoScanner => {
@@ -249,6 +267,7 @@ class CreateScanner {
   };
 
   /**
+   * Returns the configured observation scanner after singleton initialization.
    * @returns the observation scanner
    */
   getObservationScanner = ():
@@ -270,6 +289,7 @@ class CreateScanner {
     return this.observationScanner;
   };
 
+  /** Creates the Ergo scanner and registers the Rosen coordination extractors. */
   private createErgoScanner = async (
     config: Config,
     rosenConfig: RosenConfig
@@ -389,6 +409,7 @@ class CreateScanner {
     this.ergoScanner.registerExtractor(collateralExtractor);
   };
 
+  /** Creates the selected Cardano scanner and its observation extractor. */
   private createCardanoScanner = async (
     cardanoConfig: CardanoConfig,
     rosenConfig: RosenConfig,
@@ -453,6 +474,7 @@ class CreateScanner {
     }
   };
 
+  /** Creates the selected Bitcoin scanner and its observation extractor. */
   private createBitcoinScanner = async (
     bitcoinConfig: BitcoinConfig,
     rosenConfig: RosenConfig,
@@ -497,6 +519,7 @@ class CreateScanner {
     }
   };
 
+  /** Creates the Bitcoin scanner with the selected Runes protocol extractor. */
   private createBitcoinRunesScanner = async (
     bitcoinConfig: BitcoinConfig,
     bitcoinRunesConfig: BitcoinRunesConfig,
@@ -559,6 +582,7 @@ class CreateScanner {
     }
   };
 
+  /** Creates the selected Dogecoin scanner and its observation extractor. */
   private createDogeScanner = async (
     dogeConfig: DogeConfig,
     rosenConfig: RosenConfig,
@@ -603,6 +627,7 @@ class CreateScanner {
     }
   };
 
+  /** Creates the Ethereum RPC scanner and its observation extractor. */
   private createEthereumScanner = async (
     ethereumConfig: EthereumConfig,
     rosenConfig: RosenConfig,
@@ -636,6 +661,7 @@ class CreateScanner {
     }
   };
 
+  /** Creates the Binance RPC scanner and its observation extractor. */
   private createBinanceScanner = async (
     binanceConfig: BinanceConfig,
     rosenConfig: RosenConfig,
@@ -669,6 +695,7 @@ class CreateScanner {
     }
   };
 
+  /** Creates the selected Firo scanner and its observation extractor. */
   private createFiroScanner = async (
     firoConfig: FiroConfig,
     rosenConfig: RosenConfig,
@@ -714,6 +741,7 @@ class CreateScanner {
     }
   };
 
+  /** Creates the Handshake RPC scanner and its observation extractor. */
   private createHandshakeScanner = async (
     handshakeConfig: HandshakeConfig,
     rosenConfig: RosenConfig,

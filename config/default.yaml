@@ -3,6 +3,7 @@ network: '' # which scanner network used in this watcher ergo/cardano/bitcoin/et
 observation:
   # confirmation: 60 # number of required block confirmations to create the commitment after observing an event
   validThreshold: 259200 # Observations that have not been triggered will not be processed after this period (in seconds, converted to block count based on selected network block time)
+  # validThresholdBlocks: # Required positive block count for network: avalanche; replaces the seconds-based threshold.
   storeRawData: true # if set extractor will store observations raw data
 bitcoin:
   type: '' # options: esplora, rpc
@@ -68,6 +69,19 @@ ethereum:
     interval: 20 # rpc scanning interval (in seconds)
     timeout: 10 # rpc request timeout (in seconds)
     # authToken: # rpc auth token
+avalanche:
+  type: 'rpc'
+  # chainId: # Required: 43113 (Fuji) or 43114 (C-Chain mainnet).
+  # sourceId: # Required stable RPC source identifier, retained across restarts.
+  initial:
+    height: -1
+  interval: 20 # scanning interval (in seconds)
+  healthCheck:
+    # blockTime: # Required operational block-time estimate in seconds for health checks only; not finality or observation.validThresholdBlocks.
+  rpc:
+    url: '' # operator-selected C-Chain HTTP(S) RPC endpoint
+    timeout: 10 # RPC request timeout (in seconds)
+    # authToken: # RPC auth token
 binance:
   type: '' # options: rpc
   initial:

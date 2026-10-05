@@ -7,6 +7,7 @@ import { WatcherUtils } from '../../utils/watcherUtils';
 import { getConfig } from '../../config/config';
 import { Transaction } from '../../api/Transaction';
 import { DefaultLogger } from '@rosen-bridge/abstract-logger';
+import { avalancheObservationSafety } from '../../utils/avalancheSafety';
 
 const logger = DefaultLogger.getInstance().child(import.meta.url);
 
@@ -140,35 +141,43 @@ export class Queue {
     tx: TxEntity,
     currentHeight: number
   ) => {
-    const signedTx = wasm.Transaction.sigma_parse_bytes(
-      base64ToArrayBuffer(tx.txSerialized)
-    );
-    if (await this.verifyTx(tx)) {
-      const result = await ErgoNetwork.sendTx(signedTx.to_json());
-      if (result.success) {
-        logger.debug(
-          `Updating ${tx.type} transaction with txId [${tx.txId}] status to valid`
-        );
-        await this.database.setTxValidStatus(tx, true);
-        await this.database.setTxUpdateHeight(tx, currentHeight);
-        logger.info(
-          `The ${tx.type} transaction with txId [${tx.txId}] sent successfully`
-        );
-      } else {
-        if (!(await this.validateTxInputsAndOutputs(signedTx))) {
-          await this.resetTxStatus(tx, currentHeight);
-        } else {
-          logger.warn(
-            `Error occurred while sending ${tx.type} tx [${tx.txId}]`
-          );
-        }
-      }
-    } else {
-      logger.info(
-        `Tx [${tx.txId}] of type ${tx.type} observation or commitments are not valid, skipping the transaction sending]`
+    const observationTransaction =
+      tx.type === TxType.COMMITMENT || tx.type === TxType.TRIGGER;
+    /** Rechecks eligibility before sending and updates the persisted queue state. */
+    const process = async () => {
+      const signedTx = wasm.Transaction.sigma_parse_bytes(
+        base64ToArrayBuffer(tx.txSerialized)
       );
-      await this.resetTxStatus(tx, currentHeight);
-    }
+      if (await this.verifyTx(tx)) {
+        const result = await ErgoNetwork.sendTx(signedTx.to_json());
+        if (result.success) {
+          logger.debug(
+            `Updating ${tx.type} transaction with txId [${tx.txId}] status to valid`
+          );
+          await this.database.setTxValidStatus(tx, true);
+          await this.database.setTxUpdateHeight(tx, currentHeight);
+          logger.info(
+            `The ${tx.type} transaction with txId [${tx.txId}] sent successfully`
+          );
+        } else {
+          if (!(await this.validateTxInputsAndOutputs(signedTx))) {
+            await this.resetTxStatus(tx, currentHeight);
+          } else {
+            logger.warn(
+              `Error occurred while sending ${tx.type} tx [${tx.txId}]`
+            );
+          }
+        }
+      } else {
+        logger.info(
+          `Tx [${tx.txId}] of type ${tx.type} observation or commitments are not valid, skipping the transaction sending]`
+        );
+        await this.resetTxStatus(tx, currentHeight);
+      }
+    };
+    if (observationTransaction)
+      await avalancheObservationSafety.withObservation(tx.observation, process);
+    else await process();
   };
 
   /**

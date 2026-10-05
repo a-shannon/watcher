@@ -20,6 +20,7 @@ const supportedNetworks: Array<NetworkType> = [
   Constants.DOGE_CHAIN_NAME,
   Constants.ETHEREUM_CHAIN_NAME,
   Constants.BINANCE_CHAIN_NAME,
+  Constants.AVALANCHE_CHAIN_NAME,
   Constants.HANDSHAKE_CHAIN_NAME,
   Constants.FIRO_CHAIN_NAME,
 ];
@@ -31,6 +32,7 @@ interface ConfigType {
   bitcoinRunes: BitcoinRunesConfig;
   ethereum: EthereumConfig;
   binance: BinanceConfig;
+  avalanche?: AvalancheConfig;
   firo: FiroConfig;
   doge: DogeConfig;
   handshake: HandshakeConfig;
@@ -48,17 +50,24 @@ interface ConnectionConfig {
   password?: string;
 }
 
-const getRequiredNumber = (path: string) => {
-  if (!config.has(path)) {
+interface ConfigReader {
+  has(path: string): boolean;
+  get<T>(path: string): T;
+}
+
+/** Reads a required configuration value and rejects values that convert to NaN. */
+const getRequiredNumber = (path: string, source: ConfigReader = config) => {
+  if (!source.has(path)) {
     throw new Error(`ImproperlyConfigured. ${path} is not defined`);
   }
-  const value = config.get<number>(path);
+  const value = source.get<number>(path);
   if (isNaN(value)) {
     throw new Error(`ImproperlyConfigured. ${path} is not a number`);
   }
   return value;
 };
 
+/** Reads an optional numeric value, using the supplied default when absent. */
 const getOptionalNumber = (path: string, defaultValue: number) => {
   if (config.has(path)) {
     const value = config.get<number>(path);
@@ -70,6 +79,43 @@ const getOptionalNumber = (path: string, defaultValue: number) => {
   return defaultValue;
 };
 
+/** Reads a required safe integer at or above the supplied minimum. */
+const getRequiredInteger = (
+  path: string,
+  minimum: number,
+  source: ConfigReader = config
+) => {
+  const value = getRequiredNumber(path, source);
+  if (
+    typeof value !== 'number' ||
+    !Number.isSafeInteger(value) ||
+    value < minimum
+  ) {
+    throw new Error(
+      `ImproperlyConfigured. ${path} must be a safe integer >= ${minimum}`
+    );
+  }
+  return value;
+};
+
+/** Reads a positive duration in seconds that fits the Node timer range. */
+const getRequiredDuration = (path: string, source: ConfigReader = config) => {
+  const value = getRequiredNumber(path, source);
+  // Durations are converted from seconds to Node timer milliseconds.
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    value <= 0 ||
+    value * 1000 > 2147483647
+  ) {
+    throw new Error(
+      `ImproperlyConfigured. ${path} must be positive and within the timer range`
+    );
+  }
+  return value;
+};
+
+/** Reads an optional numeric value and returns undefined when it is absent. */
 const getOptionalNumberWithoutDefault = (path: string) => {
   if (config.has(path)) {
     const value = config.get<number>(path);
@@ -81,13 +127,39 @@ const getOptionalNumberWithoutDefault = (path: string) => {
   return undefined;
 };
 
-const getRequiredString = (path: string) => {
-  if (!config.has(path)) {
+/** Reads a required string value from the selected configuration source. */
+const getRequiredString = (path: string, source: ConfigReader = config) => {
+  if (!source.has(path)) {
     throw new Error(`ImproperlyConfigured. ${path} is not defined`);
   }
-  return config.get<string>(path);
+  return source.get<string>(path);
 };
 
+/** Uses explicit Avalanche blocks or converts a legacy duration into blocks. */
+const getObservationValidThreshold = (
+  network: NetworkType,
+  source: ConfigReader = config
+): number => {
+  if (network === Constants.AVALANCHE_CHAIN_NAME) {
+    return getRequiredInteger('observation.validThresholdBlocks', 1, source);
+  }
+  const blockTime = {
+    [Constants.ERGO_CHAIN_NAME]: Constants.ERGO_BLOCK_TIME,
+    [Constants.BITCOIN_CHAIN_NAME]: Constants.BITCOIN_BLOCK_TIME,
+    [Constants.BITCOIN_RUNES_CHAIN_NAME]: Constants.BITCOIN_BLOCK_TIME,
+    [Constants.CARDANO_CHAIN_NAME]: Constants.CARDANO_BLOCK_TIME,
+    [Constants.BINANCE_CHAIN_NAME]: Constants.BINANCE_BLOCK_TIME,
+    [Constants.ETHEREUM_CHAIN_NAME]: Constants.ETHEREUM_BLOCK_TIME,
+    [Constants.DOGE_CHAIN_NAME]: Constants.DOGE_BLOCK_TIME,
+    [Constants.FIRO_CHAIN_NAME]: Constants.FIRO_BLOCK_TIME,
+    [Constants.HANDSHAKE_CHAIN_NAME]: Constants.HANDSHAKE_BLOCK_TIME,
+  }[network];
+  return Math.floor(
+    getRequiredNumber('observation.validThreshold', source) / blockTime
+  );
+};
+
+/** Reads an optional string, using the supplied default when absent. */
 const getOptionalString = (path: string, defaultValue = '') => {
   if (config.has(path)) {
     return config.get<string>(path);
@@ -144,6 +216,7 @@ class Config {
     nonErgo: boolean;
   };
 
+  /** Loads the Ergo wallet, observation policy and service scheduling settings. */
   constructor() {
     this.networkType = getRequiredString('ergo.network').toLowerCase();
     if (['mainnet', 'testnet'].indexOf(this.networkType) === -1)
@@ -242,19 +315,8 @@ class Config {
     this.observationConfirmation = getRequiredNumber(
       'observation.confirmation'
     );
-    const blockTime = {
-      [Constants.ERGO_CHAIN_NAME]: Constants.ERGO_BLOCK_TIME,
-      [Constants.BITCOIN_CHAIN_NAME]: Constants.BITCOIN_BLOCK_TIME,
-      [Constants.BITCOIN_RUNES_CHAIN_NAME]: Constants.BITCOIN_BLOCK_TIME,
-      [Constants.CARDANO_CHAIN_NAME]: Constants.CARDANO_BLOCK_TIME,
-      [Constants.BINANCE_CHAIN_NAME]: Constants.BINANCE_BLOCK_TIME,
-      [Constants.ETHEREUM_CHAIN_NAME]: Constants.ETHEREUM_BLOCK_TIME,
-      [Constants.DOGE_CHAIN_NAME]: Constants.DOGE_BLOCK_TIME,
-      [Constants.FIRO_CHAIN_NAME]: Constants.FIRO_BLOCK_TIME,
-      [Constants.HANDSHAKE_CHAIN_NAME]: Constants.HANDSHAKE_BLOCK_TIME,
-    }[this.networkWatcher];
-    this.observationValidThreshold = Math.floor(
-      getRequiredNumber('observation.validThreshold') / blockTime
+    this.observationValidThreshold = getObservationValidThreshold(
+      this.networkWatcher
     );
     this.observationStoreRawData = config.get<boolean>(
       'observation.storeRawData'
@@ -317,6 +379,7 @@ class Config {
 class LoggerConfig {
   transports: TransportOptions[];
 
+  /** Loads the configured logger transports. */
   constructor() {
     const logs = config.get<TransportOptions[]>('logs');
     const clonedLogs = cloneDeep(logs);
@@ -388,6 +451,7 @@ class CardanoConfig {
     projectId: string;
   };
 
+  /** Loads Cardano observation settings when Cardano is the selected network. */
   constructor(network: string) {
     this.type = config.get<string>('cardano.type');
     if (network === Constants.CARDANO_CHAIN_NAME) {
@@ -450,6 +514,7 @@ class BitcoinConfig {
     password?: string;
   };
 
+  /** Loads Bitcoin settings for Bitcoin and Bitcoin Runes observation. */
   constructor(network: string) {
     this.type = config.get<string>('bitcoin.type');
     if (
@@ -487,6 +552,7 @@ class BitcoinRunesConfig {
     apiKey: string;
   };
 
+  /** Loads Runes protocol settings when Bitcoin Runes observation is selected. */
   constructor(network: string) {
     this.type = config.get<string>('bitcoinRunes.type');
     if (network === Constants.BITCOIN_RUNES_CHAIN_NAME) {
@@ -515,6 +581,7 @@ class DogeConfig {
   esplora: ConnectionConfig[];
   rpc: ConnectionConfig[];
 
+  /** Loads Dogecoin observation settings when Dogecoin is selected. */
   constructor(network: string) {
     this.type = config.get<string>('doge.type');
     if (network === Constants.DOGE_CHAIN_NAME) {
@@ -586,6 +653,7 @@ class EthereumConfig {
     authToken?: string;
   };
 
+  /** Loads Ethereum observation settings when Ethereum is selected. */
   constructor(network: string) {
     this.type = config.get<string>('ethereum.type');
     if (network === Constants.ETHEREUM_CHAIN_NAME) {
@@ -608,6 +676,90 @@ class EthereumConfig {
   }
 }
 
+class AvalancheConfig {
+  readonly type = Constants.EVM_RPC_TYPE;
+  readonly chainId: 43113 | 43114;
+  readonly sourceId: string;
+  readonly initialHeight: number;
+  readonly interval: number;
+  readonly blockTime: number;
+  readonly rpc: {
+    url: string;
+    timeout: number;
+    authToken?: string;
+  };
+
+  /** Validates the explicit Avalanche chain, RPC source and scanner policy. */
+  constructor(source: ConfigReader = config) {
+    if (
+      getRequiredString('avalanche.type', source) !== Constants.EVM_RPC_TYPE
+    ) {
+      throw new Error('ImproperlyConfigured. avalanche.type must be rpc');
+    }
+    const chainId = getRequiredInteger('avalanche.chainId', 0, source);
+    if (chainId !== 43113 && chainId !== 43114) {
+      throw new Error(
+        'ImproperlyConfigured. avalanche.chainId must be 43113 or 43114'
+      );
+    }
+    this.chainId = chainId;
+    const sourceId = getRequiredString('avalanche.sourceId', source);
+    if (
+      typeof sourceId !== 'string' ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(sourceId)
+    ) {
+      throw new Error(
+        'ImproperlyConfigured. avalanche.sourceId must be a stable source identifier'
+      );
+    }
+    this.sourceId = sourceId;
+    this.initialHeight = getRequiredInteger(
+      'avalanche.initial.height',
+      -1,
+      source
+    );
+    this.interval = getRequiredDuration('avalanche.interval', source);
+    const blockTime = getRequiredNumber(
+      'avalanche.healthCheck.blockTime',
+      source
+    );
+    if (
+      typeof blockTime !== 'number' ||
+      !Number.isFinite(blockTime) ||
+      blockTime <= 0
+    ) {
+      throw new Error(
+        'ImproperlyConfigured. avalanche.healthCheck.blockTime must be positive and finite'
+      );
+    }
+    this.blockTime = blockTime;
+    const url = getRequiredString('avalanche.rpc.url', source);
+    let validUrl = false;
+    if (typeof url === 'string' && url.length > 0 && url.trim() === url) {
+      try {
+        validUrl = ['http:', 'https:'].includes(new URL(url).protocol);
+      } catch {
+        // Invalid URLs are rejected before constructing the provider.
+      }
+    }
+    if (!validUrl) {
+      throw new Error(
+        'ImproperlyConfigured. avalanche.rpc.url must be an HTTP(S) URL'
+      );
+    }
+    const timeout = getRequiredDuration('avalanche.rpc.timeout', source);
+    const authToken = source.has('avalanche.rpc.authToken')
+      ? source.get<unknown>('avalanche.rpc.authToken')
+      : undefined;
+    if (authToken !== undefined && typeof authToken !== 'string') {
+      throw new Error(
+        'ImproperlyConfigured. avalanche.rpc.authToken must be a string'
+      );
+    }
+    this.rpc = { url, timeout, authToken };
+  }
+}
+
 class BinanceConfig {
   type: string;
   initialHeight: number;
@@ -618,6 +770,7 @@ class BinanceConfig {
     authToken?: string;
   };
 
+  /** Loads Binance observation settings when Binance is selected. */
   constructor(network: string) {
     this.type = config.get<string>('binance.type');
     if (network === Constants.BINANCE_CHAIN_NAME) {
@@ -655,6 +808,7 @@ class FiroConfig {
     timeout: number;
   };
 
+  /** Loads Firo observation settings when Firo is selected. */
   constructor(network: string) {
     this.type = config.get<string>('firo.type');
     if (network === Constants.FIRO_CHAIN_NAME) {
@@ -695,6 +849,7 @@ class HandshakeConfig {
     password?: string;
   };
 
+  /** Loads Handshake observation settings when Handshake is selected. */
   constructor(network: string) {
     this.type = config.get<string>('handshake.type');
     if (network === Constants.HANDSHAKE_CHAIN_NAME) {
@@ -724,6 +879,7 @@ class DatabaseConfig {
   password = '';
   name = '';
 
+  /** Loads the database connection settings for the selected database engine. */
   constructor() {
     this.type = getRequiredString('database.type');
     if (this.type === 'sqlite') {
@@ -749,6 +905,7 @@ class NotificationConfig {
   hasBeenUnknownForAWhileWindowDuration?: number;
   isStillUnhealthyWindowDuration?: number;
 
+  /** Loads enabled notification channels and their service settings. */
   constructor() {
     this.discordWebHookUrl = getOptionalString(
       'notification.discordWebhookUrl'
@@ -783,6 +940,7 @@ class HealthCheckConfig {
   errorLogAllowedCount: number;
   warnLogAllowedCount: number;
 
+  /** Loads health assessment intervals and allowed log counts. */
   constructor() {
     this.ergWarnThreshold = BigInt(
       getRequiredString('healthCheck.asset.ergWarnThreshold')
@@ -815,6 +973,7 @@ class HealthCheckConfig {
 
 let internalConfig: ConfigType | undefined;
 
+/** Initializes all service configuration once and returns the cached result. */
 const getConfig = (): ConfigType => {
   if (internalConfig == undefined) {
     const general = new Config();
@@ -825,6 +984,10 @@ const getConfig = (): ConfigType => {
     const doge = new DogeConfig(general.networkWatcher);
     const ethereum = new EthereumConfig(general.networkWatcher);
     const binance = new BinanceConfig(general.networkWatcher);
+    const avalanche =
+      general.networkWatcher === Constants.AVALANCHE_CHAIN_NAME
+        ? new AvalancheConfig()
+        : undefined;
     const handshake = new HandshakeConfig(general.networkWatcher);
     const firo = new FiroConfig(general.networkWatcher);
     const rosen = new RosenConfig(
@@ -841,6 +1004,7 @@ const getConfig = (): ConfigType => {
       doge,
       ethereum,
       binance,
+      avalanche,
       handshake,
       firo,
       logger,
@@ -855,15 +1019,18 @@ const getConfig = (): ConfigType => {
 };
 
 export {
+  AvalancheConfig,
   BinanceConfig,
   BitcoinConfig,
   BitcoinRunesConfig,
   CardanoConfig,
   Config,
+  ConfigReader,
   DogeConfig,
   EthereumConfig,
   FiroConfig,
   getConfig,
+  getObservationValidThreshold,
   HandshakeConfig,
   RosenConfig,
 };

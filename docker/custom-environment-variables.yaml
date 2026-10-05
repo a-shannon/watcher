@@ -27,6 +27,32 @@ cardano:
 ethereum:
   rpc:
     authToken: 'ETHEREUM_RPC_AUTH_TOKEN'
+avalanche:
+  chainId:
+    __name: 'AVALANCHE_CHAIN_ID'
+    __format: 'number'
+  sourceId: 'AVALANCHE_SOURCE_ID'
+  healthCheck:
+    blockTime:
+      __name: 'AVALANCHE_HEALTH_CHECK_BLOCK_TIME'
+      __format: 'number'
+  initial:
+    height:
+      __name: 'AVALANCHE_INITIAL_HEIGHT'
+      __format: 'number'
+  interval:
+    __name: 'AVALANCHE_SCANNER_INTERVAL'
+    __format: 'number'
+  rpc:
+    url: 'AVALANCHE_RPC_URL'
+    timeout:
+      __name: 'AVALANCHE_RPC_TIMEOUT'
+      __format: 'number'
+    authToken: 'AVALANCHE_RPC_AUTH_TOKEN'
+observation:
+  validThresholdBlocks:
+    __name: 'AVALANCHE_OBSERVATION_VALID_THRESHOLD_BLOCKS'
+    __format: 'number'
 binance:
   rpc:
     authToken: 'BINANCE_RPC_AUTH_TOKEN'

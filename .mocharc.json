@@ -1,11 +1,27 @@
 {
   "extensions": ["ts"],
   "spec": ["tests/**/*.ts"],
-  "node-option": ["import=tsx"],
-  "require": ["src/bootstrap.ts", "tests/bootstrap.ts"],
   "ignore": [
     "tests/ergo/utils.spec.ts",
     "tests/ergo/transaction/queue.spec.ts",
-    "tests/sharedSetup.ts"
-  ]
+    "tests/sharedSetup.ts",
+    "tests/config/avalancheConfig.spec.ts",
+    "tests/database/avalancheSafetyState.spec.ts",
+    "tests/utils/avalancheSafety.spec.ts",
+    "tests/utils/avalancheScanner.spec.ts",
+    "tests/transactions/avalancheCommitmentCreation.spec.ts",
+    "tests/transactions/avalancheCommitmentReveal.spec.ts",
+    "tests/ergo/transaction/avalancheQueue.spec.ts",
+    "tests/setup-tests.ts",
+    "tests/avalancheTestData.ts",
+    "tests/avalancheTestUtils.ts",
+    "tests/utils/mocked/avalancheScanner.mock.ts",
+    "tests/utils/avalancheScannerTestData.ts",
+    "tests/jobs/initScanner.spec.ts",
+    "tests/jobs/mocked/scanning.mock.ts",
+    "tests/jobs/testData.ts",
+    "tests/jobs/testUtils.ts"
+  ],
+  "node-option": ["import=tsx"],
+  "require": ["src/bootstrap.ts", "tests/bootstrap.ts"]
 }

@@ -12,6 +12,7 @@ import { getConfig } from '../config/config';
 import { DefaultLogger } from '@rosen-bridge/abstract-logger';
 import { ERGO_CHAIN_NAME } from '../config/constants';
 import { TokensConfig } from '../config/tokensConfig';
+import { avalancheObservationSafety } from '../utils/avalancheSafety';
 
 const logger = DefaultLogger.getInstance().child(import.meta.url);
 
@@ -20,6 +21,7 @@ export class CommitmentCreation {
   txUtils: TransactionUtils;
   boxes: Boxes;
 
+  /** Binds commitment creation to observation checks, queue submission and boxes. */
   constructor(
     watcherUtils: WatcherUtils,
     txUtils: TransactionUtils,
@@ -118,7 +120,10 @@ export class CommitmentCreation {
         getConfig().general.secretKey,
         inputBoxes,
         candidates,
-        height
+        height,
+        undefined,
+        undefined,
+        (sign) => avalancheObservationSafety.withObservation(observation, sign)
       );
       await this.txUtils.submitTransaction(
         signed,

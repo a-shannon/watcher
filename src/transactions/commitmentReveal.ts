@@ -11,6 +11,7 @@ import { TransactionUtils, WatcherUtils } from '../utils/watcherUtils';
 import { getConfig } from '../config/config';
 import { DefaultLogger } from '@rosen-bridge/abstract-logger';
 import { ERGO_CHAIN_NAME } from '../config/constants';
+import { avalancheObservationSafety } from '../utils/avalancheSafety';
 
 const logger = DefaultLogger.getInstance().child(import.meta.url);
 
@@ -19,6 +20,7 @@ export class CommitmentReveal {
   txUtils: TransactionUtils;
   boxes: Boxes;
 
+  /** Binds trigger creation to observation checks, queue submission and boxes. */
   constructor(
     watcherUtils: WatcherUtils,
     txUtils: TransactionUtils,
@@ -77,7 +79,9 @@ export class CommitmentReveal {
         inputBoxes,
         [triggerEvent],
         height,
-        dataInputs
+        dataInputs,
+        undefined,
+        (sign) => avalancheObservationSafety.withObservation(observation, sign)
       );
       await this.txUtils.submitTransaction(signed, TxType.TRIGGER, observation);
       logger.info(`Trigger event created with txId [${signed.id().to_str()}]`);
